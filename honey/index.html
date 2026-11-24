@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-app="honey">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>نظام حسابات العسل</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#c98a12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="../icons/honey-192.png">
+<script src="../lib/zip.js"></script>
+<script src="../lib/sync.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7f3ea;--card:#fff;--ink:#2a2116;--mute:#7a6d5c;--line:#e9e0cf;
+  --honey:#c98a12;--honey-d:#9c6a0a;--honey-l:#fbefd4;
+  --good:#2f7d4f;--good-l:#e3f2e8;--bad:#b3402f;--bad-l:#f8e3df;
+  --r:14px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#17130d;--card:#221c14;--ink:#f3ead9;--mute:#a8997f;--line:#3a3022;
+  --honey:#e3a42a;--honey-d:#f0bb52;--honey-l:#3a2c12;--good:#5fbf86;--good-l:#183324;--bad:#ec7f6c;--bad-l:#3d1d17;}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;font-size:15px}
+body{padding-bottom:84px}
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding:14px 16px 8px;border-bottom:1px solid var(--line)}
+header h1{margin:0;font-size:18px;display:flex;align-items:center;gap:8px}
+header .sub{color:var(--mute);font-size:12px;margin-top:2px}
+.banner{margin:10px 16px 0;padding:10px 12px;border-radius:10px;font-size:13px;background:var(--honey-l);color:var(--honey-d)}
+.banner.err{background:var(--bad-l);color:var(--bad)}
+main{padding:12px 16px;max-width:900px;margin:0 auto}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:6;background:var(--card);border-top:1px solid var(--line);display:flex;overflow-x:auto;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+nav button{flex:1 0 auto;min-width:64px;border:0;background:none;color:var(--mute);font:inherit;font-size:11px;padding:4px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;border-radius:10px}
+nav button .ic{font-size:19px;line-height:1}
+nav button.on{color:var(--honey-d);background:var(--honey-l);font-weight:600}
+h2{font-size:16px;margin:4px 0 12px;display:flex;justify-content:space-between;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:640px){.grid{grid-template-columns:repeat(3,1fr)}}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px}
+.stat .k{font-size:12px;color:var(--mute)}
+.stat .v{font-size:20px;font-weight:700;margin-top:4px;direction:ltr;text-align:right}
+.stat.hero{grid-column:1/-1;background:linear-gradient(135deg,var(--honey),var(--honey-d));color:#fff;border:0}
+.stat.hero .k{color:#fff9e9;opacity:.9}.stat.hero .v{font-size:28px}
+.stat .note{font-size:11px;color:var(--mute);margin-top:4px}
+.stat.hero .note{color:#fff3d6}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;margin-bottom:10px}
+.item{cursor:pointer}
+.item:active{transform:scale(.995)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.t{font-weight:600}
+.m{color:var(--mute);font-size:12px}
+.num{direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:2px 9px}
+.chip b{font-weight:600}
+.pill{font-size:11px;border-radius:999px;padding:2px 8px;font-weight:600;white-space:nowrap}
+.pill.good{background:var(--good-l);color:var(--good)}.pill.bad{background:var(--bad-l);color:var(--bad)}.pill.mid{background:var(--honey-l);color:var(--honey-d)}
+.pos{color:var(--good)}.neg{color:var(--bad)}
+.btn{border:0;border-radius:10px;padding:9px 14px;font:inherit;font-weight:600;cursor:pointer;background:var(--honey);color:#fff}
+.btn.ghost{background:var(--honey-l);color:var(--honey-d)}
+.btn.danger{background:var(--bad-l);color:var(--bad)}
+.btn.sm{padding:6px 11px;font-size:13px}
+.fab{position:fixed;left:16px;bottom:86px;z-index:7;width:54px;height:54px;border-radius:50%;font-size:28px;line-height:54px;padding:0;box-shadow:0 6px 18px rgba(0,0,0,.2)}
+.tools{display:flex;gap:8px;margin-bottom:10px}
+input,select,textarea{width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{color:var(--mute);font-weight:500;font-size:12px}
+.tbl{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--r)}
+.empty{text-align:center;color:var(--mute);padding:30px 10px}
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--card);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+@media(min-width:640px){.sheet-bg{align-items:center}.sheet{border-radius:18px}}
+.sheet h3{margin:0 0 4px;font-size:17px}
+.actions{display:flex;gap:8px;margin-top:16px}
+.actions .btn{flex:1}
+.calc{margin-top:10px;padding:10px;border-radius:10px;background:var(--honey-l);color:var(--honey-d);font-size:13px}
+.alert{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.alert:last-child{border:0}
+.toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:13px;z-index:40}
+.back{background:none;border:0;color:var(--honey-d);font:inherit;font-weight:600;cursor:pointer;padding:0}
+</style>
+</head>
+<body>
+<header>
+  <h1>🍯 نظام حسابات العسل</h1>
+  <div class="sub" id="sub">جارٍ التحميل…</div>
+</header>
+<div id="banner"></div>
+<main id="main"><div class="empty">جارٍ تحميل البيانات…</div></main>
+<button class="btn fab" id="fab" style="display:none">+</button>
+<nav id="nav"></nav>
+<div id="modal"></div>
+
+<script>
+(() => {
+const COLS = ["shipments","expenses","sales","payments"];
+const S = { shipments:[], expenses:[], sales:[], payments:[], settings:{sar:0.2667,kwd:1.4084,fee:1200,traders:[]} };
+const loaded = {};
+let db = null, canWrite = true, view = "summary", detail = null, filters = {q:"",month:""};
+const TABS = [
+  ["summary","📊","الملخص"],["shipments","📦","الشحنات"],["expenses","💸","المصروفات"],
+  ["sales","🧾","المبيعات"],["payments","💵","التحصيلات"],["traders","👥","التجار"],
+  ["monthly","📅","الشهري"],["settings","⚙️","الإعدادات"]];
+const CUR = ["دولار أمريكي","ريال سعودي","دينار كويتي"];
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num = v => (v === "" || v == null || isNaN(+v)) ? null : +v;
+const f = (v, d=2) => v == null || isNaN(v) ? "—" : (+v).toLocaleString("en-US",{maximumFractionDigits:d,minimumFractionDigits:0});
+const usd = v => `<span class="num">$${f(v)}</span>`;
+const kwd = v => `<span class="num">${f(v,3)}</span> د.ك`;
+const kg = v => `<span class="num">${f(v,2)}</span> كجم`;
+const pct = v => v == null ? "—" : `<span class="num">${f(v*100,1)}%</span>`;
+const sgn = v => v == null ? "" : (v < 0 ? "neg" : "pos");
+const today = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+const monthKey = d => (d||"").slice(0,7);
+const MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+const monthName = k => { if(!k) return "بدون تاريخ"; const [y,m]=k.split("-"); return MONTHS[+m-1]+" "+y; };
+const fmtDate = d => d ? `<span class="num">${d.split("-").reverse().join("/")}</span>` : "بدون تاريخ";
+const byDateDesc = (a,b) => (b.date||"").localeCompare(a.date||"");
+const newId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+function toast(t){ const d=document.createElement("div"); d.className="toast"; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),1800); }
+
+/* ---------- calculations (same logic as the Excel file) ---------- */
+function compute(){
+  const st = S.settings, rate = c => c==="دولار أمريكي"?1 : c==="ريال سعودي"?st.sar : st.kwd;
+  const codes = new Set(S.shipments.map(s=>s.code));
+  const exp = S.expenses.map(e => {
+    const usd = (num(e.amount)!=null && e.cur) ? num(e.amount)*rate(e.cur) : null;
+    const type = num(e.amount)==null ? "" : !e.code ? "عام" : codes.has(e.code) ? "شحنة" : "كود خاطئ";
+    return {...e, usd, type};
+  });
+  const ship = {};
+  S.shipments.forEach(s => {
+    const qty=num(s.qty)||0, value = qty*(num(s.price)||0);
+    const shipUsd = (num(s.fee) ?? num(st.fee) ?? 0) * st.sar;
+    const other = exp.filter(e=>e.code===s.code && e.usd!=null).reduce((a,e)=>a+e.usd,0);
+    const total = value+shipUsd+other;
+    ship[s.code] = {...s, value, shipUsd, other, total, costKg: qty ? total/qty : null, sold:0, revenue:0, profit:0};
+  });
+  const sales = S.sales.map(x => {
+    const qty=num(x.qty), price=num(x.price);
+    const totalK = (qty!=null && price!=null) ? qty*price : null;
+    const rev = totalK!=null ? totalK*st.kwd : null;
+    const sh = ship[x.code];
+    let cost=null, err=false;
+    if (totalK!=null){ if (sh && sh.costKg!=null) cost = qty*sh.costKg; else err = true; }
+    const profit = cost!=null ? rev-cost : null;
+    if (sh){ sh.sold += qty||0; sh.revenue += rev||0; sh.profit += profit||0; }
+    return {...x, totalK, rev, cost, err, profit, profitK: profit!=null ? profit/st.kwd : null};
+  });
+  Object.values(ship).forEach(s => { s.remaining=(num(s.qty)||0)-s.sold; s.margin = s.revenue ? s.profit/s.revenue : null; });
+
+  const names = [...st.traders];
+  [...S.sales, ...S.payments].forEach(r => { if (r.trader && !names.includes(r.trader)) names.push(r.trader); });
+  const traders = names.map(n => {
+    const ss = sales.filter(s=>s.trader===n), ps = S.payments.filter(p=>p.trader===n);
+    const total = ss.reduce((a,s)=>a+(s.totalK||0),0);
+    const paid = ss.filter(s=>s.pay==="مدفوع").reduce((a,s)=>a+(s.totalK||0),0);
+    const credit = total-paid, got = ps.reduce((a,p)=>a+(num(p.amount)||0),0), due = credit-got;
+    const status = total===0 ? "لا مبيعات" : due>0.005 ? "عليه مبلغ" : due<-0.005 ? "دفع زيادة" : "مسدد";
+    return {name:n, qty:ss.reduce((a,s)=>a+(num(s.qty)||0),0), total, paid, credit, got, due, status,
+      profit:ss.reduce((a,s)=>a+(s.profit||0),0), profitK:ss.reduce((a,s)=>a+(s.profitK||0),0), sales:ss, pays:ps};
+  });
+
+  const months = new Set(sales.filter(s=>s.date).map(s=>monthKey(s.date)));
+  exp.filter(e=>e.type==="عام" && e.date).forEach(e=>months.add(monthKey(e.date)));
+  const monthly = [...months].sort().map(k => {
+    const ms = sales.filter(s=>monthKey(s.date)===k);
+    const general = exp.filter(e=>e.type==="عام" && monthKey(e.date)===k).reduce((a,e)=>a+(e.usd||0),0);
+    const rev = ms.reduce((a,s)=>a+(s.rev||0),0), cost = ms.reduce((a,s)=>a+(s.cost||0),0), profit = ms.reduce((a,s)=>a+(s.profit||0),0);
+    return {k, qty:ms.reduce((a,s)=>a+(num(s.qty)||0),0), rev, cost, profit, general, net:profit-general,
+      netK: ms.reduce((a,s)=>a+(s.profitK||0),0) - general/st.kwd, margin: rev ? (profit-general)/rev : null};
+  });
+
+  const shipArr = Object.values(ship);
+  const bought = shipArr.reduce((a,s)=>a+(num(s.qty)||0),0), sold = sales.reduce((a,s)=>a+(num(s.qty)||0),0);
+  const revenue = sales.reduce((a,s)=>a+(s.rev||0),0), profit = sales.reduce((a,s)=>a+(s.profit||0),0);
+  const general = exp.filter(e=>e.type==="عام").reduce((a,e)=>a+(e.usd||0),0);
+  const cm = monthKey(today());
+  const sum = { bought, sold, stock:bought-sold, shipCost:shipArr.reduce((a,s)=>a+s.total,0), revenue, profit, general,
+    net:profit-general, netPct: revenue ? (profit-general)/revenue : null,
+    due: traders.reduce((a,t)=>a+t.due,0),
+    monthProfit: sales.filter(s=>monthKey(s.date)===cm).reduce((a,s)=>a+(s.profit||0),0),
+    monthGeneral: exp.filter(e=>e.type==="عام" && monthKey(e.date)===cm).reduce((a,e)=>a+(e.usd||0),0),
+    alerts: [
+      ["مبيعات بكود شحنة غير موجود", sales.filter(s=>s.err).length],
+      ["مصروفات بكود شحنة خاطئ", exp.filter(e=>e.type==="كود خاطئ").length],
+      ["شحنات بِيع منها أكثر من كميتها", shipArr.filter(s=>s.remaining< -1e-9).length],
+      ["مبيعات بدون تاريخ", sales.filter(s=>s.totalK!=null && !s.date).length]]};
+  return {exp, ship, shipArr, sales, traders, monthly, sum};
+}
+
+/* ---------- rendering ---------- */
+function renderNav(){
+  $("#nav").innerHTML = TABS.map(([k,ic,t]) => `<button data-tab="${k}" class="${view===k?"on":""}"><span class="ic">${ic}</span>${t}</button>`).join("");
+}
+function render(){
+  if (!COLS.every(c=>loaded[c])) return;
+  const C = compute();
+  $("#sub").textContent = `${S.sales.length} بيع · ${S.payments.length} دفعة · ${S.shipments.length} شحنة`;
+  renderNav();
+  const fabFor = {sales:1,payments:1,shipments:1,expenses:1};
+  $("#fab").style.display = (fabFor[view] && canWrite && !detail) ? "block" : "none";
+  const V = {summary,sales:salesV,payments:paymentsV,traders:tradersV,shipments:shipmentsV,expenses:expensesV,monthly:monthlyV,settings:settingsV};
+  try { $("#main").innerHTML = V[view](C); }
+  catch(e){ showBanner("خطأ في العرض: "+(e&&e.message||e), true); }
+}
+
+function summary(C){
+  const s=C.sum; s.monthNet = s.monthProfit - s.monthGeneral;
+  const alerts = s.alerts.map(([t,n])=>`<div class="alert"><span>${t}</span><span class="pill ${n?"bad":"good"}">${n?n:"✓ صفر"}</span></div>`).join("");
+  return `
+  <div class="grid">
+    <div class="stat hero"><div class="k">صافي الربح</div><div class="v">${usd(s.net)}</div><div class="note">بعد خصم المصروفات العامة وأرباح الشركاء · نسبة ${pct(s.netPct)} من الإيراد</div></div>
+    <div class="stat"><div class="k">صافي ربح الشهر الحالي</div><div class="v ${sgn(s.monthNet)}">${usd(s.monthNet)}</div><div class="note">بعد خصم مصروفات عامة ${usd(s.monthGeneral)}</div></div>
+    <div class="stat"><div class="k">ربح مبيعات الشهر الحالي</div><div class="v ${sgn(s.monthProfit)}">${usd(s.monthProfit)}</div><div class="note">قبل خصم المصروفات العامة</div></div>
+    <div class="stat"><div class="k">المطلوب من التجار</div><div class="v">${kwd(s.due)}</div></div>
+    <div class="stat"><div class="k">إيراد المبيعات</div><div class="v">${usd(s.revenue)}</div></div>
+    <div class="stat"><div class="k">ربح المبيعات</div><div class="v">${usd(s.profit)}</div><div class="note">قبل خصم الشركاء</div></div>
+    <div class="stat"><div class="k">المصروفات العامة</div><div class="v">${usd(s.general)}</div></div>
+    <div class="stat"><div class="k">تكلفة الشحنات</div><div class="v">${usd(s.shipCost)}</div></div>
+    <div class="stat"><div class="k">المشترى</div><div class="v">${kg(s.bought)}</div></div>
+    <div class="stat"><div class="k">المباع</div><div class="v">${kg(s.sold)}</div></div>
+    <div class="stat"><div class="k">المتبقي في المخزون</div><div class="v">${kg(s.stock)}</div></div>
+  </div>
+  <h2 style="margin-top:18px">تنبيهات <span class="m">يجب أن تكون كلها صفر</span></h2>
+  <div class="card">${alerts}</div>
+  <div class="actions"><button class="btn ghost" data-xlsx>⬇️ تحميل كل البيانات كملف إكسل</button></div>`;
+}
+
+/* ---------- list views ---------- */
+function monthOpts(list){
+  const ks=[...new Set(list.filter(r=>r.date).map(r=>monthKey(r.date)))].sort().reverse();
+  return `<select id="mf" style="max-width:150px"><option value="">كل الأشهر</option>${ks.map(k=>`<option value="${k}" ${filters.month===k?"selected":""}>${monthName(k)}</option>`).join("")}</select>`;
+}
+function toolbar(list){ return `<div class="tools"><input id="q" placeholder="بحث…" value="${esc(filters.q)}">${monthOpts(list)}</div>`; }
+function applyF(list, keys){
+  const q=filters.q.trim().toLowerCase();
+  return list.filter(r => (!filters.month || monthKey(r.date)===filters.month) &&
+    (!q || keys.some(k => String(r[k]??"").toLowerCase().includes(q)))).sort(byDateDesc);
+}
+const emptyMsg = t => `<div class="empty">${t}</div>`;
+
+function saleCard(s){
+  return `<div class="card item" data-edit="sales" data-id="${esc(s.id)}">
+    <div class="row"><span class="t">${esc(s.trader)||"—"}</span><span class="pill ${s.pay==="مدفوع"?"good":"mid"}">${esc(s.pay||"آجل")}</span></div>
+    <div class="row m"><span>${fmtDate(s.date)} · ${esc(s.code)||"بدون كود"}</span><span>${kwd(s.totalK)}</span></div>
+    <div class="chips"><span class="chip">${kg(s.qty)} × ${kwd(s.price)}</span>
+      <span class="chip">الربح <b class="${sgn(s.profit)}">${usd(s.profit)}</b></span>
+      ${s.err?`<span class="pill bad">كود شحنة خاطئ</span>`:""}${s.note?`<span class="chip">${esc(s.note)}</span>`:""}</div></div>`;
+}
+function payCard(p){
+  return `<div class="card item" data-edit="payments" data-id="${esc(p.id)}">
+    <div class="row"><span class="t">${esc(p.trader)||"—"}</span><span class="pos">${kwd(num(p.amount))}</span></div>
+    <div class="row m"><span>${fmtDate(p.date)}</span><span>${esc(p.note||"")}</span></div></div>`;
+}
+
+function salesV(C){
+  const list=applyF(C.sales,["trader","code","note"]);
+  const tot=list.reduce((a,s)=>a+(s.totalK||0),0);
+  return `<h2>المبيعات <span class="m">${list.length} · ${kwd(tot)}</span></h2>${toolbar(C.sales)}` +
+    (list.length ? list.map(saleCard).join("") : emptyMsg("لا توجد مبيعات. اضغط + للإضافة"));
+}
+function paymentsV(C){
+  const list=applyF(S.payments,["trader","note"]);
+  const tot=list.reduce((a,p)=>a+(num(p.amount)||0),0);
+  return `<h2>التحصيلات <span class="m">${list.length} · ${kwd(tot)}</span></h2>${toolbar(S.payments)}` +
+    (list.length ? list.map(payCard).join("") : emptyMsg("لا توجد دفعات. اضغط + للإضافة"));
+}
+function shipmentsV(C){
+  const list=applyF(C.shipArr,["code"]);
+  return `<h2>الشحنات <span class="m">${list.length}</span></h2>${toolbar(C.shipArr)}` +
+    (list.length ? list.map(s=>`<div class="card item" data-edit="shipments" data-id="${esc(s.id)}">
+      <div class="row"><span class="t">${esc(s.code)}</span><span class="pill ${s.remaining< -1e-9?"bad":s.remaining>0?"mid":"good"}">متبقي ${kg(s.remaining)}</span></div>
+      <div class="row m"><span>${fmtDate(s.date)} · ${kg(num(s.qty))}</span><span>التكلفة ${usd(s.total)}</span></div>
+      <div class="chips"><span class="chip">تكلفة الكيلو <b>${usd(s.costKg)}</b></span><span class="chip">العسل ${usd(s.value)}</span>
+        <span class="chip">الشحن ${usd(s.shipUsd)}</span><span class="chip">مصاريف ${usd(s.other)}</span>
+        <span class="chip">الربح <b class="${sgn(s.profit)}">${usd(s.profit)}</b> (${pct(s.margin)})</span></div></div>`).join("")
+      : emptyMsg("لا توجد شحنات. اضغط + للإضافة"));
+}
+function expensesV(C){
+  const list=applyF(C.exp,["desc","code","cur"]);
+  const tot=list.reduce((a,e)=>a+(e.usd||0),0);
+  return `<h2>المصروفات <span class="m">${list.length} · ${usd(tot)}</span></h2>${toolbar(C.exp)}` +
+    (list.length ? list.map(e=>`<div class="card item" data-edit="expenses" data-id="${esc(e.id)}">
+      <div class="row"><span class="t">${esc(e.desc)||"مصروف"}</span><span>${usd(e.usd)}</span></div>
+      <div class="row m"><span>${fmtDate(e.date)} · <span class="num">${f(num(e.amount))}</span> ${esc(e.cur||"")}</span>
+      <span class="pill ${e.type==="كود خاطئ"?"bad":e.type==="عام"?"mid":"good"}">${e.type==="شحنة"?"شحنة "+esc(e.code):esc(e.type||"—")}</span></div></div>`).join("")
+      : emptyMsg("لا توجد مصروفات. اضغط + للإضافة"));
+}
+function tradersV(C){
+  if (detail){
+    const t=C.traders.find(x=>x.name===detail);
+    if (!t){ detail=null; return tradersV(C); }
+    return `<button class="back" data-back>→ رجوع للتجار</button>
+      <h2 style="margin-top:10px">${esc(t.name)} <span class="pill ${t.due>0.005?"bad":"good"}">${esc(t.status)}</span></h2>
+      <div class="grid">
+        <div class="stat hero"><div class="k">المتبقي عليه</div><div class="v">${kwd(t.due)}</div></div>
+        <div class="stat"><div class="k">إجمالي المشتريات</div><div class="v">${kwd(t.total)}</div></div>
+        <div class="stat"><div class="k">مدفوع نقداً</div><div class="v">${kwd(t.paid)}</div></div>
+        <div class="stat"><div class="k">آجل</div><div class="v">${kwd(t.credit)}</div></div>
+        <div class="stat"><div class="k">المستلم من الدفعات</div><div class="v">${kwd(t.got)}</div></div>
+        <div class="stat"><div class="k">الكمية</div><div class="v">${kg(t.qty)}</div></div>
+        <div class="stat"><div class="k">ربحي منه</div><div class="v ${sgn(t.profit)}">${usd(t.profit)}</div></div>
+      </div>
+      ${canWrite?`<div class="actions"><button class="btn" data-quick="sales">+ بيع</button><button class="btn ghost" data-quick="payments">+ دفعة</button></div>`:""}
+      <h2 style="margin-top:16px">المبيعات</h2>${t.sales.length?[...t.sales].sort(byDateDesc).map(saleCard).join(""):emptyMsg("لا مبيعات")}
+      <h2>الدفعات</h2>${t.pays.length?[...t.pays].sort(byDateDesc).map(payCard).join(""):emptyMsg("لا دفعات")}`;
+  }
+  return `<h2>التجار <span class="m">المطلوب ${kwd(C.sum.due)}</span></h2>` +
+    (C.traders.length ? C.traders.map(t=>`<div class="card item" data-trader="${esc(t.name)}">
+      <div class="row"><span class="t">${esc(t.name)}</span><span class="pill ${t.due>0.005?"bad":t.total?"good":"mid"}">${esc(t.status)}</span></div>
+      <div class="row m"><span>مشتريات ${kwd(t.total)}</span><span>عليه ${kwd(t.due)}</span></div></div>`).join("")
+      : emptyMsg("لا يوجد تجار. أضفهم من الإعدادات"));
+}
+function monthlyV(C){
+  if (!C.monthly.length) return `<h2>الشهري</h2>`+emptyMsg("لا توجد بيانات بعد");
+  return `<h2>الأرباح الشهرية</h2><div class="tbl"><table>
+    <tr><th>الشهر</th><th>الكمية</th><th>الإيراد</th><th>التكلفة</th><th>ربح المبيعات</th><th>مصروفات عامة</th><th>الصافي $</th><th>الصافي د.ك</th><th>النسبة</th></tr>
+    ${[...C.monthly].reverse().map(m=>`<tr><td>${monthName(m.k)}</td><td>${kg(m.qty)}</td><td>${usd(m.rev)}</td><td>${usd(m.cost)}</td>
+      <td class="${sgn(m.profit)}">${usd(m.profit)}</td><td>${usd(m.general)}</td><td class="${sgn(m.net)}"><b>${usd(m.net)}</b></td>
+      <td>${kwd(m.netK)}</td><td>${pct(m.margin)}</td></tr>`).join("")}</table></div>`;
+}
+function settingsV(C){
+  const st=S.settings, dis=canWrite?"":"disabled";
+  return `<h2>الإعدادات</h2>
+    <div class="card"><div class="t">أسعار التحويل إلى الدولار</div>
+      <div class="two"><div><label>الريال السعودي = $</label><input id="s_sar" inputmode="decimal" value="${esc(st.sar)}" ${dis}></div>
+      <div><label>الدينار الكويتي = $</label><input id="s_kwd" inputmode="decimal" value="${esc(st.kwd)}" ${dis}></div></div>
+      <label>رسوم الشحن الافتراضية (ريال)</label><input id="s_fee" inputmode="decimal" value="${esc(st.fee)}" ${dis}>
+      ${canWrite?`<div class="actions"><button class="btn" data-savesettings>حفظ</button></div>`:""}</div>
+    <div class="card"><div class="t">قائمة التجار</div>
+      ${st.traders.map((n,i)=>`<div class="alert"><span>${esc(n)}</span>${canWrite?`<button class="btn danger sm" data-deltrader="${i}">حذف</button>`:""}</div>`).join("")||`<div class="m" style="padding:8px 0">لا يوجد تجار</div>`}
+      ${canWrite?`<div class="tools" style="margin-top:10px"><input id="newTrader" placeholder="اسم تاجر جديد"><button class="btn sm" data-addtrader>إضافة</button></div>`:""}</div>
+    <div class="card"><div class="t">النسخ الاحتياطي</div>
+      <div class="actions"><button class="btn ghost" data-xlsx>⬇️ تحميل ملف إكسل</button><button class="btn ghost" data-backup>📋 نسخ البيانات</button>${canWrite?`<button class="btn ghost" data-import>📥 لصق بيانات منسوخة</button>`:""}</div></div>`;
+}
+
+/* ---------- Excel export (same workbook as the original file) ---------- */
+/* Fills the original-workbook template with the app's data. Pure string work on sheet XML. */
+function xlFill(files, D){
+  const xe = s => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const serial = d => { const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(d||""); return m ? (Date.UTC(+m[1],+m[2]-1,+m[3]) - Date.UTC(1899,11,30))/86400000 : null; };
+  const asc = (a,b) => (a.date||"").localeCompare(b.date||"");
+  const warn = [];
+  function put(path, firstRow, lastRow, rows, cols){
+    if (rows.length > lastRow-firstRow+1) warn.push(path);
+    const map = {};
+    rows.slice(0, lastRow-firstRow+1).forEach((r,i) => cols.forEach(([col,kind,key]) => {
+      const v = typeof key==="function" ? key(r) : r[key];
+      if (v==null || v==="") return;
+      map[col+(firstRow+i)] = [kind, v];
+    }));
+    files[path] = setCells(files[path], map);
+  }
+  function setCells(xml, map){
+    return xml.replace(/<c r="([A-Z]+\d+)"([^>]*?)(\/>|>[\s\S]*?<\/c>)/g, (m, ref, attrs) => {
+      const e = map[ref]; if (!e) return m;
+      const a = attrs.replace(/\st="[^"]*"/,"");
+      let [kind, v] = e;
+      if (kind==="d"){ const s=serial(v); if (s==null) kind="s"; else v=s; }
+      if (kind==="n"){ if (typeof v!=="number" || !isFinite(v)) kind="s"; }
+      if (kind==="s") return `<c r="${ref}"${a} t="inlineStr"><is><t xml:space="preserve">${xe(v)}</t></is></c>`;
+      return `<c r="${ref}"${a}><v>${v}</v></c>`;
+    });
+  }
+  put("xl/worksheets/sheet2.xml",5,64,[...D.shipments].sort(asc),[["A","s","code"],["B","d","date"],["C","n","qty"],["D","n","price"],["E","n","fee"]]);
+  put("xl/worksheets/sheet3.xml",5,304,[...D.expenses].sort(asc),[["A","d","date"],["B","s","code"],["C","s","desc"],["D","n","amount"],["E","s","cur"]]);
+  put("xl/worksheets/sheet4.xml",5,804,[...D.sales].sort(asc),[["A","d","date"],["B","s","trader"],["C","s","code"],["D","n","qty"],["E","n","price"],["F","s","pay"],["G","s","note"]]);
+  put("xl/worksheets/sheet5.xml",5,404,[...D.payments].sort(asc),[["A","d","date"],["B","s","trader"],["C","n","amount"],["D","s","note"]]);
+  const st = D.settings, sm = {B4:["n",st.sar],B5:["n",st.kwd],B6:["n",st.fee]};
+  const names = [...st.traders];
+  [...D.sales,...D.payments].forEach(r => { if (r.trader && !names.includes(r.trader)) names.push(r.trader); });
+  if (names.length > 30) warn.push("traders");
+  names.slice(0,30).forEach((n,i) => sm["A"+(11+i)] = ["s",n]);
+  files["xl/worksheets/sheet9.xml"] = setCells(files["xl/worksheets/sheet9.xml"], sm);
+  return warn;
+}
+
+function loadJSZip(){
+  if (window.JSZip) return Promise.resolve(window.JSZip);
+  return new Promise((ok, bad) => { const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+    s.onload=()=>ok(window.JSZip); s.onerror=()=>bad(new Error("load")); document.head.appendChild(s); });
+}
+async function buildHoneyXlsx(){
+  const [JSZip, tpl] = await Promise.all([loadJSZip(), fetch("template.json").then(r=>{ if(!r.ok) throw new Error("load"); return r.json(); }).then(j=>j.b64)]);
+  const zip = await JSZip.loadAsync(tpl, {base64:true}), files = {};
+  for (const n of [2,3,4,5,9]){ const p=`xl/worksheets/sheet${n}.xml`; files[p] = await zip.file(p).async("string"); }
+  const warn = xlFill(files, {shipments:S.shipments, expenses:S.expenses, sales:S.sales, payments:S.payments, settings:S.settings});
+  for (const p in files) zip.file(p, files[p]);
+  return { blob: await zip.generateAsync({type:"blob", compression:"DEFLATE"}), warn, name:`حسابات العسل ${today()}.xlsx` };
+}
+async function exportXlsx(btn){
+  const dl = await claude.use("downloads");
+  if (!dl){ toast("التحميل غير متاح هنا"); return; }
+  const old = btn.textContent; btn.disabled=true; btn.textContent="جارٍ التجهيز…";
+  try {
+    const {blob, warn, name} = await buildHoneyXlsx();
+    await dl.save({filename:name, data:blob});
+    toast(warn.length ? "تم التحميل، لكن بعض السجلات زادت عن سعة الملف" : "تم التحميل ✓");
+  } catch(e){
+    if (e && e.code==="declined") {} else toast(e && e.message==="load" ? "تعذّر تجهيز الملف، تحقق من الاتصال" : "تعذّر التحميل");
+  } finally { btn.disabled=false; btn.textContent=old; }
+}
+
+/* ---------- forms ---------- */
+const FORMS = {
+  shipments: { title:"شحنة", fields:[
+    ["code","كود الشحنة","text"],["date","التاريخ","date"],["qty","الكمية (كجم)","num"],
+    ["price","سعر الكيلو من المورد ($)","num"],["fee","رسوم الشحن (ريال) — اتركها فارغة للافتراضي","num"]]},
+  expenses: { title:"مصروف", fields:[
+    ["date","التاريخ","date"],["code","كود الشحنة (فارغ = مصروف عام)","shipcode"],["desc","البيان","text"],
+    ["amount","المبلغ","num"],["cur","العملة","cur"]]},
+  sales: { title:"عملية بيع", fields:[
+    ["date","التاريخ","date"],["trader","التاجر","trader"],["code","كود الشحنة","shipcode"],
+    ["qty","الكمية (كجم) — نصف = 0.5، ربع = 0.25","num"],["price","سعر الكيلو (دينار)","num"],["pay","الدفع","pay"],["note","ملاحظات","text"]]},
+  payments: { title:"دفعة من تاجر", fields:[
+    ["date","التاريخ","date"],["trader","التاجر","trader"],["amount","المبلغ المستلم (دينار)","num"],["note","ملاحظات","text"]]},
+};
+function fieldHtml([k,lab,type], v){
+  const val = esc(v ?? "");
+  let inp;
+  if (type==="date") inp=`<input type="date" name="${k}" value="${val}">`;
+  else if (type==="num") inp=`<input name="${k}" inputmode="decimal" value="${val}">`;
+  else if (type==="cur") inp=`<select name="${k}">${CUR.map(c=>`<option ${c===v?"selected":""}>${c}</option>`).join("")}</select>`;
+  else if (type==="pay") inp=`<select name="${k}">${["آجل","مدفوع"].map(c=>`<option ${c===v?"selected":""}>${c}</option>`).join("")}</select>`;
+  else if (type==="trader"){ const names=[...new Set([...S.settings.traders, ...(v?[v]:[])])];
+    inp=`<select name="${k}"><option value="">— اختر —</option>${names.map(c=>`<option ${c===v?"selected":""}>${esc(c)}</option>`).join("")}</select>`; }
+  else if (type==="shipcode"){ const codes=[...S.shipments].sort(byDateDesc).map(s=>s.code); if(v && !codes.includes(v)) codes.push(v);
+    inp=`<select name="${k}"><option value="">${k==="code"&&lab.includes("فارغ")?"— مصروف عام —":"— اختر —"}</option>${codes.map(c=>`<option ${c===v?"selected":""}>${esc(c)}</option>`).join("")}</select>`; }
+  else inp=`<input name="${k}" value="${val}">`;
+  return `<label>${lab}</label>${inp}`;
+}
+let editing = null;
+function openForm(col, id, preset){
+  if (!canWrite && !id) return;
+  const F=FORMS[col], rec = id ? S[col].find(r=>r.id===id) : null;
+  const base = rec || {date:today(), cur:"دينار كويتي", pay:"آجل", ...(col==="shipments"?{code:"ش"+(S.shipments.length+1), price:400}:{}),
+    ...(col==="sales"&&S.shipments.length?{code:[...S.shipments].sort(byDateDesc)[0].code}:{}), ...(preset||{})};
+  editing = {col, id: rec?rec.id:null};
+  $("#modal").innerHTML = `<div class="sheet-bg" data-close><div class="sheet">
+    <h3>${rec?"تعديل":"إضافة"} ${F.title}</h3>
+    <form id="frm">${F.fields.map(fl=>fieldHtml(fl, base[fl[0]])).join("")}
+      <div class="calc" id="calc"></div>
+      <div class="actions">${canWrite?`<button class="btn" type="submit">حفظ</button>`:""}<button class="btn ghost" type="button" data-close>إغلاق</button></div>
+      ${rec&&canWrite?`<div class="actions"><button class="btn danger" type="button" id="del">حذف</button></div>`:""}
+    </form></div></div>`;
+  if (!canWrite) $("#frm").querySelectorAll("input,select").forEach(e=>e.disabled=true);
+  liveCalc();
+}
+function readForm(){
+  const o={}; FORMS[editing.col].fields.forEach(([k,,t]) => { const v=$("#frm").elements[k].value.trim();
+    o[k] = t==="num" ? (v===""?null:(isNaN(+v.replace(",","."))?null:+v.replace(",","."))) : v; });
+  return o;
+}
+function liveCalc(){
+  const c=$("#calc"); if(!c||!editing) return; const o=readForm(), st=S.settings;
+  let t="";
+  if (editing.col==="sales" && o.qty!=null && o.price!=null){
+    const tk=o.qty*o.price, r=tk*st.kwd;
+    const C=compute(), sh=C.ship[o.code]; const cost = sh&&sh.costKg!=null ? o.qty*sh.costKg : null;
+    t=`الإجمالي ${kwd(tk)} = ${usd(r)}` + (cost!=null?` · الربح المتوقع ${usd(r-cost)}`:` · <b>اختر كود شحنة صحيح</b>`);
+  } else if (editing.col==="shipments" && o.qty!=null && o.price!=null){
+    t=`قيمة العسل ${usd(o.qty*o.price)} · الشحن ${usd((o.fee??st.fee)*st.sar)}`;
+  } else if (editing.col==="expenses" && o.amount!=null){
+    const r = o.cur==="دولار أمريكي"?1:o.cur==="ريال سعودي"?st.sar:st.kwd; t=`= ${usd(o.amount*r)} · ${o.code?"يُضاف لتكلفة الشحنة "+esc(o.code):"مصروف عام يُخصم من الربح"}`;
+  }
+  c.innerHTML=t; c.style.display=t?"block":"none";
+}
+function closeModal(){ $("#modal").innerHTML=""; editing=null; render(); }
+function confirmBox(msg, ok){
+  $("#modal").insertAdjacentHTML("beforeend", `<div class="sheet-bg" id="cfm"><div class="sheet"><h3>${msg}</h3>
+    <div class="actions"><button class="btn danger" id="cyes">نعم، احذف</button><button class="btn ghost" id="cno">تراجع</button></div></div></div>`);
+  $("#cyes").onclick=()=>{ $("#cfm").remove(); ok(); }; $("#cno").onclick=()=>$("#cfm").remove();
+}
+
+/* ---------- استيراد البيانات المنسوخة من النسخة القديمة ---------- */
+function openImport(){
+  $("#modal").insertAdjacentHTML("beforeend", `<div class="sheet-bg" id="imp"><div class="sheet"><h3>لصق البيانات</h3>
+    <p class="m">في التطبيق القديم اضغط «📋 نسخ البيانات»، بعدين الصقها هنا. هذا يستبدل كل البيانات الحالية.</p>
+    <textarea id="impT" dir="ltr" style="width:100%;min-height:140px;font:13px monospace;padding:8px;border:1px solid var(--line);border-radius:10px"></textarea>
+    <div class="actions"><button class="btn" id="impY">استيراد</button><button class="btn ghost" id="impN">إلغاء</button></div><div id="impM" class="m"></div></div></div>`);
+  $("#impN").onclick=()=>$("#imp").remove();
+  $("#impY").onclick=async()=>{
+    let d; try { d=JSON.parse($("#impT").value); } catch(e){ $("#impM").textContent="البيانات غير صحيحة — تأكد إنك لصقتها كاملة."; return; }
+    if (!d || !Array.isArray(d.sales) || !d.settings){ $("#impM").textContent="هذي مو بيانات نظام العسل."; return; }
+    const ops=[{col:"config",id:"settings",data:d.settings}];
+    for (const c of COLS){
+      const keep=new Set((d[c]||[]).map(r=>String(r.id)));
+      (d[c]||[]).forEach(r=>{ if(r.id!=null) ops.push({col:c,id:String(r.id),data:r}); });
+      S[c].forEach(r=>{ if(!keep.has(String(r.id))) ops.push({col:c,id:String(r.id),del:1}); });
+    }
+    await db.bulk(ops); $("#imp").remove();
+    toast("تم الاستيراد ✓ — "+COLS.reduce((n,c)=>n+(d[c]||[]).length,0)+" سجل");
+  };
+}
+
+/* ---------- storage ---------- */
+let busy=false;
+async function write(fn, okMsg){
+  if (busy) return; busy=true;
+  try { await fn(); if(okMsg) toast(okMsg); }
+  catch(e){ if (e && e.code==="invalid_argument"){ canWrite=false; render(); }
+    showBanner("تعذّر الحفظ: "+(e&&e.message||e), true); }
+  finally{ busy=false; }
+}
+async function saveRecord(){
+  const o=readForm(), col=editing.col;
+  const need = {shipments:["code","qty"],expenses:["amount"],sales:["trader","qty","price"],payments:["trader","amount"]}[col];
+  if (need.some(k=>o[k]==null||o[k]==="")) { toast("أكمل الحقول الأساسية"); return; }
+  if (col==="shipments" && S.shipments.some(s=>s.code===o.code && s.id!==editing.id)) { toast("هذا الكود مستخدم"); return; }
+  const id = editing.id || newId(col[0]);
+  const doc = {...o, id};
+  closeModal();
+  await write(()=>db.collection(col).doc(id).set(doc), "تم الحفظ ✓");
+}
+async function saveSettings(patch){
+  const next={...S.settings, ...patch};
+  await write(()=>db.doc("config/settings").set(next), "تم الحفظ ✓");
+}
+
+function showBanner(t, err){ $("#banner").innerHTML = t ? `<div class="banner ${err?"err":""}">${t}</div>` : ""; }
+
+async function start(){
+  renderNav();
+  db = await claude.use("db");
+  if (window.Hesabati) Hesabati.dailyExcel(async()=>{ const r=await buildHoneyXlsx(); return {blob:r.blob, name:r.name}; });
+  if (!db){ showBanner("لا يمكن الوصول لقاعدة البيانات الآن. افتح التطبيق وأنت مسجّل الدخول في Claude.", true); $("#main").innerHTML=""; return; }
+  try { const u = await claude.use("user"); if (u && u.can){ const w = await u.can("data.write"); if (w===false) canWrite=false; } } catch(e){}
+  const timer = setTimeout(()=>{ if(!COLS.every(c=>loaded[c])) showBanner("البيانات تتأخر في الوصول… تحقق من الاتصال.", false); }, 10000);
+  COLS.forEach(c => db.collection(c).onSnapshot(snap => {
+    S[c] = snap.docs.map(d => ({...d.data(), id:d.id})); loaded[c]=true;
+    if (COLS.every(x=>loaded[x])) { clearTimeout(timer); if(!$("#banner .err")) showBanner(""); }
+    if (!editing) render();
+  }, e => { clearTimeout(timer); showBanner("انقطع الاتصال بالبيانات ("+e.code+"). أعد فتح الصفحة.", true); }));
+  db.doc("config/settings").onSnapshot(s => { if (s.exists){ const d=s.data(); S.settings={...S.settings,...d, traders:[...(d.traders||[])]}; } if(!editing) render(); }, ()=>{});
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-tab],[data-edit],[data-trader],[data-back],[data-close],[data-quick],[data-savesettings],[data-addtrader],[data-deltrader],[data-backup],[data-xlsx],[data-import],#fab,#del");
+  if (!t) return;
+  if (t.dataset.close!==undefined){ if (e.target===t || t.tagName==="BUTTON") closeModal(); return; }
+  if (t.dataset.tab){ view=t.dataset.tab; detail=null; filters={q:"",month:""}; window.scrollTo(0,0); render(); return; }
+  if (t.dataset.edit){ openForm(t.dataset.edit, t.dataset.id); return; }
+  if (t.dataset.trader){ detail=t.dataset.trader; window.scrollTo(0,0); render(); return; }
+  if (t.dataset.back!==undefined){ detail=null; render(); return; }
+  if (t.dataset.quick){ openForm(t.dataset.quick, null, {trader:detail}); return; }
+  if (t.id==="fab"){ openForm(view); return; }
+  if (t.id==="del"){ const {col,id}=editing; confirmBox("حذف هذا السجل نهائياً؟", ()=>{ closeModal(); write(()=>db.collection(col).doc(id).delete(), "تم الحذف"); }); return; }
+  if (t.dataset.savesettings!==undefined){ const p={sar:num($("#s_sar").value),kwd:num($("#s_kwd").value),fee:num($("#s_fee").value)};
+    if (!p.sar||!p.kwd){ toast("أدخل أسعاراً صحيحة"); return; } saveSettings(p); return; }
+  if (t.dataset.addtrader!==undefined){ const n=$("#newTrader").value.trim(); if(!n) return; if(S.settings.traders.includes(n)){toast("موجود");return;}
+    saveSettings({traders:[...S.settings.traders,n]}); return; }
+  if (t.dataset.deltrader){ const i=+t.dataset.deltrader, n=S.settings.traders[i];
+    confirmBox(`حذف "${esc(n)}" من القائمة؟`, ()=>saveSettings({traders:S.settings.traders.filter((_,j)=>j!==i)})); return; }
+  if (t.dataset.xlsx!==undefined){ exportXlsx(t); return; }
+  if (t.dataset.import!==undefined){ openImport(); return; }
+  if (t.dataset.backup!==undefined){ const txt=JSON.stringify({settings:S.settings,shipments:S.shipments,expenses:S.expenses,sales:S.sales,payments:S.payments});
+    navigator.clipboard.writeText(txt).then(()=>toast("تم النسخ ✓"),()=>toast("تعذّر النسخ")); return; }
+});
+document.addEventListener("submit", e => { if (e.target.id==="frm"){ e.preventDefault(); saveRecord(); } });
+document.addEventListener("input", e => {
+  if (e.target.id==="q"){ filters.q=e.target.value; const pos=e.target.selectionStart; render(); const q=$("#q"); if(q){q.focus(); q.setSelectionRange(pos,pos);} }
+  else if (e.target.closest("#frm")) liveCalc();
+});
+document.addEventListener("change", e => {
+  if (e.target.id==="mf"){ filters.month=e.target.value; render(); }
+  else if (e.target.closest("#frm")) liveCalc();
+});
+start();
+})();
+</script>
+</body>
+</html>

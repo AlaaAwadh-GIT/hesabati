@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-app="launcher">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>حساباتي</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b4433">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icons/home-192.png">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="lib/sync.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.6 "IBM Plex Sans Arabic",Tahoma,sans-serif;background:#eef3f0;color:#11211a;min-height:100vh}
+@media(prefers-color-scheme:dark){body{background:#08130f;color:#e6efe9}.card{background:#112019!important;border-color:#20362c!important}.card p{color:#93a89e!important}}
+header{background:linear-gradient(160deg,#0f5a43,#0b4433);color:#fff;padding:calc(56px + env(safe-area-inset-top)) max(5vw,18px) 34px;border-bottom:3px solid #d4a73c}
+h1{margin:0;font-size:clamp(30px,8vw,44px);line-height:1.1}
+header p{margin:8px 0 0;opacity:.85}
+main{max-width:760px;margin:0 auto;padding:20px max(4vw,14px) 40px;display:grid;gap:14px}
+.card{display:grid;grid-template-columns:72px minmax(0,1fr);gap:16px;align-items:center;background:#fff;border:1px solid #dbe5df;border-radius:20px;padding:16px;text-decoration:none;color:inherit;box-shadow:0 2px 10px rgba(0,0,0,.04);min-height:104px}
+.card:focus-visible{outline:3px solid #d4a73c}
+.card img{width:72px;height:72px;border-radius:18px}
+.card b{font-size:20px;display:block}
+.card p{margin:2px 0 0;color:#5d7068;font-size:14px}
+.link{background:#fff4dc;border:1px solid #e7c063;border-radius:16px;padding:14px 16px;color:#3a2a00}
+.link button{font:inherit;font-weight:700;min-height:44px;border:0;border-radius:12px;background:#0f5a43;color:#fff;padding:8px 18px;margin-top:8px;cursor:pointer}
+.tip{font-size:14px;color:#5d7068;padding:0 4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>حساباتي</h1>
+  <p>تشتغل بالإنترنت وبدونه، وكل شي يتزامن مع حسابك في Google.</p>
+</header>
+<main>
+  <div class="link" id="linkbox" hidden>
+    <b>الجهاز غير مربوط بحسابك في Google بعد.</b><br>
+    بدون ربط، البيانات تنحفظ على هذا الجهاز فقط.
+    <div><button type="button" id="linkbtn">ربط الآن</button></div>
+  </div>
+  <a class="card" href="sarafa/"><img src="icons/sarafa-192.png" alt=""><div><b>حساباتي للصرافة</b><p>التحويلات، العملاء، الصرافين، والأرباح الشهرية</p></div></a>
+  <a class="card" href="honey/"><img src="icons/honey-192.png" alt=""><div><b>نظام حسابات العسل</b><p>الشحنات، المبيعات، التجار، والدفعات</p></div></a>
+  <a class="card" href="expenses/"><img src="icons/expenses-192.png" alt=""><div><b>مصاريفي الشهرية</b><p>مصاريف البيت حسب الفئة والشهر</p></div></a>
+  <p class="tip">لتثبيته كتطبيق: على الجوال افتح قائمة Chrome ⋮ واختر «إضافة إلى الشاشة الرئيسية». وعلى اللابتوب اضغط أيقونة التثبيت في شريط العنوان.</p>
+</main>
+<script>
+{
+  const show = () => { document.getElementById('linkbox').hidden = !!Hesabati.getLink(); };
+  show(); setInterval(show, 2000);
+  document.getElementById('linkbtn').onclick = () => document.getElementById('hs-pill').click();
+}
+</script>
+</body>
+</html>
