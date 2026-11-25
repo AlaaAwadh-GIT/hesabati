@@ -2,7 +2,9 @@
 (function (G) {
   const T = { TR: 'تحويل', PC: 'تسديد عميل', PX: 'تسديد صراف' };
   const isNum = v => typeof v === 'number' && isFinite(v);
-  const eq = (a, b) => typeof a === 'string' && typeof b === 'string' && a.toLowerCase() === b.toLowerCase();
+  // مطابقة الأسماء: تتجاهل المسافات الزائدة (بداية/نهاية/مكررة) والرموز الخفية وحالة الأحرف
+  const nk = s => String(s).replace(/[​-‏‪-‮⁦-⁩﻿ـ]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const eq = (a, b) => typeof a === 'string' && typeof b === 'string' && nk(a) === nk(b);
 
   function mineVal(t) {
     if (isNum(t.mine)) return t.mine;
@@ -167,7 +169,8 @@
     for (let r = 5; r <= 1004; r++) {
       const t = bySeq.get(r) || {}; const u = {};
       u.A = t.date ? serial(t.date) : (t.dateRaw || null);
-      u.B = numOr(t.type); u.C = numOr(t.client); u.D = numOr(t.ex); u.E = numOr(t.cur); u.F = numOr(t.amt); u.G = numOr(t.pct);
+      const canon = (v, arr) => (typeof v === 'string' && arr.find(n => n && eq(n, v))) || v;
+      u.B = numOr(t.type); u.C = numOr(canon(t.client, cfg.clients)); u.D = numOr(canon(t.ex, cfg.exchangers)); u.E = numOr(t.cur); u.F = numOr(t.amt); u.G = numOr(t.pct);
       u.H = isNum(t.mine) ? t.mine : { f: `IF(AND(B${r}="تحويل",ISNUMBER(F${r}),ISNUMBER(G${r})),F${r}*G${r},"")` };
       u.I = numOr(t.exc); u.J = numOr(t.excCur); u.K = numOr(t.charge); u.L = noteVal(t.note);
       main[r] = u;

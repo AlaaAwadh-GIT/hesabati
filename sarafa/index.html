@@ -279,7 +279,7 @@ function openForm(t){
   if (readOnly) return toast('للقراءة فقط');
   editing = t ? {...t} : {type:T.TR, date:todayISO(), cur:'دولار أمريكي', excCur:'ريال يمني', charge:'لا'};
   const e = editing, cur = cfg.currencies;
-  const sel = (id, arr, val, blank=true) => `<select id="${id}">${blank?'<option value="">—</option>':''}${(val&&!arr.some(a=>a===val)?[val]:[]).concat(arr.filter(Boolean)).map(x=>`<option ${x===val?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
+  const sel = (id, arr, val, blank=true) => `<select id="${id}">${blank?'<option value="">—</option>':''}${(val&&!arr.some(a=>a===val)?[val]:[]).concat(arr.filter(Boolean)).map(x=>`<option value="${esc(x)}" ${x===val?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
   const pctTxt = C.isNum(e.pct) ? +(e.pct*100).toFixed(6) : '';
   $('panel').innerHTML = `<h3>${t?'تعديل عملية':'عملية جديدة'}</h3>
    <div class="f"><label>نوع الحركة</label><div class="seg" id="ftype">${[T.TR,T.PC,T.PX].map(x=>`<button type="button" class="${e.type===x?'on':''}">${x}</button>`).join('')}</div></div>
@@ -344,7 +344,7 @@ async function saveCfg(){
   const n = structuredClone(cfg);
   for (const el of document.querySelectorAll('[data-rate]')) { const v=pnum(el.value); if (!v || Number.isNaN(v)) return toast('سعر الصرف غير صحيح'); n.rates[+el.dataset.rate]=v; }
   for (const [key,names,open] of [['c','clients','openClients'],['x','exchangers','openEx']]) {
-    for (const el of document.querySelectorAll(`[data-${key}n]`)) n[names][+el.getAttribute(`data-${key}n`)] = el.value.replace(/^\s+/,'');
+    for (const el of document.querySelectorAll(`[data-${key}n]`)) n[names][+el.getAttribute(`data-${key}n`)] = el.value.replace(/\s+/g,' ').trim();
     for (const el of document.querySelectorAll(`[data-${key}o]`)) { const [i,k]=el.getAttribute(`data-${key}o`).split('-').map(Number); const v=pnum(el.value); if (Number.isNaN(v)) return toast('رصيد افتتاحي غير صحيح'); n[open][i][k]=v||0; }
   }
   try { $('saveCfg').disabled = true; await db.doc('app/config').set(n); toast('تم حفظ الإعدادات'); } catch(err){ handleErr(err); }
