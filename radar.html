@@ -258,7 +258,7 @@ let S = Object.assign(structuredClone(DEF), ls.get('gr_set', {}));
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (v, d) => Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
-const lastData = {};
+const lastData = {}, MEM = {};
 
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
@@ -267,8 +267,8 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
 });
 
 async function fetchH1(sym, size) {
-  const cacheKey = 'gr_c_' + sym.td + size, c = ls.get(cacheKey, null);
-  const now = Date.now();
+  const big = size > 3000, cacheKey = 'gr_c_' + sym.td + size, now = Date.now();
+  const c = big ? (MEM[cacheKey] || null) : ls.get(cacheKey, null);
   if (c && now - c.at < 10 * 60000 && Math.floor(c.at / 3600000) === Math.floor(now / 3600000)) return c.bars;
   const url = 'https://api.twelvedata.com/time_series?symbol=' + encodeURIComponent(sym.td) + '&interval=1h&outputsize=' + size + '&timezone=UTC&order=ASC&apikey=' + encodeURIComponent(S.key);
   const r = await fetch(url); const j = await r.json();
@@ -276,7 +276,7 @@ async function fetchH1(sym, size) {
   let bars = j.values.map(v => ({ t: Date.parse(v.datetime.replace(' ', 'T') + 'Z'), o: +v.open, h: +v.high, l: +v.low, c: +v.close }));
   bars.sort((a, b) => a.t - b.t);
   if (bars.length && bars[bars.length - 1].t + 3600000 > now) bars.pop(); // حذف الشمعة غير المغلقة
-  ls.set(cacheKey, { at: now, bars: size > 3000 ? [] : bars });
+  if (big) MEM[cacheKey] = { at: now, bars }; else ls.set(cacheKey, { at: now, bars });
   return bars;
 }
 
@@ -372,7 +372,9 @@ $('runBt').onclick = async () => {
   $('btMsg').textContent = 'جاري جلب 5000 شمعة لكل رمز…'; let out = '';
   for (const sym of S.syms) {
     try {
-      const bars = await fetchH1(sym, 5000), P = Engine.prepare(bars), R = Engine.backtest(P, { threshold: S.th, rr: S.rr, allHours: sym.allHours });
+      const bars = await fetchH1(sym, 5000);
+      if (bars.length < 400) throw new Error('بيانات غير كافية (' + bars.length + ' شمعة)');
+      const P = Engine.prepare(bars), R = Engine.backtest(P, { threshold: S.th, rr: S.rr, allHours: sym.allHours });
       const from = new Date(bars[250] ? bars[250].t : bars[0].t).toLocaleDateString('ar'), to = new Date(bars[bars.length - 1].t).toLocaleDateString('ar');
       out += `<div class="card" style="margin-bottom:14px"><div class="top"><span class="sym">${esc(sym.name)}</span><span class="small">${esc(from)} — ${esc(to)}</span></div>
       <div class="stats"><div><span class="small">عدد الصفقات</span><strong>${R.n}</strong></div><div><span class="small">نسبة النجاح</span><strong>${(R.winRate * 100).toFixed(0)}%</strong></div><div><span class="small">صفقة/أسبوع</span><strong>${R.perWeek.toFixed(1)}</strong></div><div><span class="small">صافي الربح (خسارة ${S.maxRisk}$ للصفقة)</span><strong style="color:${R.netR >= 0 ? 'var(--buy)' : 'var(--sell)'}">${fmt(R.netR * S.maxRisk, 0)}$</strong></div><div><span class="small">معامل الربح</span><strong>${isFinite(R.pf) ? R.pf.toFixed(2) : '∞'}</strong></div><div><span class="small">أطول سلسلة خسائر</span><strong>${R.maxLossStreak}</strong></div></div>
