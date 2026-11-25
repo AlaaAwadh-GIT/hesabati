@@ -1,10 +1,9 @@
 /* يخلي التطبيقات تفتح بدون إنترنت */
-const V = 'hesabati-v4';
+const V = 'hesabati-v5';
 const FILES = ['./', 'index.html', 'manifest.json', 'lib/sync.js', 'lib/zip.js',
   'sarafa/', 'sarafa/index.html', 'sarafa/core.js', 'sarafa/template.json', 'sarafa/manifest.json',
   'honey/', 'honey/index.html', 'honey/template.json', 'honey/manifest.json',
   'expenses/', 'expenses/index.html', 'expenses/manifest.json',
-  'radar/', 'radar/index.html', 'radar/manifest.json', 'icons/radar-192.png', 'icons/radar-512.png',
   'icons/home-192.png', 'icons/sarafa-192.png', 'icons/honey-192.png', 'icons/expenses-192.png',
   'icons/home-512.png', 'icons/sarafa-512.png', 'icons/honey-512.png', 'icons/expenses-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
