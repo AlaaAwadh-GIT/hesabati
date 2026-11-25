@@ -1,5 +1,5 @@
 /* يخلي التطبيقات تفتح بدون إنترنت */
-const V = 'hesabati-v3';
+const V = 'hesabati-v4';
 const FILES = ['./', 'index.html', 'manifest.json', 'lib/sync.js', 'lib/zip.js',
   'sarafa/', 'sarafa/index.html', 'sarafa/core.js', 'sarafa/template.json', 'sarafa/manifest.json',
   'honey/', 'honey/index.html', 'honey/template.json', 'honey/manifest.json',

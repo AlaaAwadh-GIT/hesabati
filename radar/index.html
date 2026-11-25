@@ -72,7 +72,7 @@ h2{font-size:20px;margin:6px 0 10px}h3{font-size:17px;margin:16px 0 6px}
   <p>توصيات قليلة وعالية الجودة على H1 بتأكيد H4 — لا ينفّذ صفقات</p>
   <nav>
     <button data-v="sig" class="on">التوصيات</button>
-    <button data-v="bt">الاختبار التاريخي</button>
+    <button data-v="bt">مختبر الاستراتيجيات</button>
     <button data-v="hist">سجل التوصيات</button>
     <button data-v="set">الإعدادات</button>
     <button data-v="how">كيف يعمل</button>
@@ -87,10 +87,11 @@ h2{font-size:20px;margin:6px 0 10px}h3{font-size:17px;margin:16px 0 6px}
 </section>
 
 <section class="view" id="v-bt">
-  <h2>الاختبار التاريخي</h2>
-  <p class="small">يطبّق نفس قواعد التوصيات حرفياً على آخر ~5000 شمعة ساعة (حوالي 8 أشهر للذهب)، دخول عند افتتاح الشمعة التالية، وإذا لمس السعر الوقف والهدف بنفس الشمعة تُحسب <b>خسارة</b> (افتراض متحفظ). هذا هو الرقم الحقيقي لنسبة النجاح — وليس وعداً بالمستقبل.</p>
-  <div class="bar"><button class="b p" id="runBt">شغّل الاختبار</button><span class="small" id="btMsg"></span></div>
+  <h2>مختبر الاستراتيجيات</h2>
+  <p class="small">يجلب حوالي 15,000 شمعة ساعة لكل رمز (سنتين تقريباً للذهب)، ويجرّب 6 استراتيجيات معروفة بنسب ربح مختلفة، مع خصم السبريد. يقسم البيانات: <b>65% تدريب</b> ثم <b>35% اختبار</b> على فترة لاحقة لم تُستخدم في الاختيار. الاستراتيجية "تجتاز" فقط إذا ربحت في الفترتين. يستغرق حوالي دقيقة ونصف بسبب حدود الخطة المجانية.</p>
+  <div class="bar"><button class="b p" id="runBt">شغّل المختبر</button><span class="small" id="btMsg"></span></div>
   <div id="btOut"></div>
+  <details class="card" style="margin-top:14px"><summary><b>شرح الاستراتيجيات</b></summary><ul id="stratList"></ul></details>
 </section>
 
 <section class="view" id="v-hist">
@@ -117,6 +118,7 @@ h2{font-size:20px;margin:6px 0 10px}h3{font-size:17px;margin:16px 0 6px}
 
 <section class="view" id="v-how">
   <h2>كيف يعمل النظام</h2>
+  <div class="note">بعد نتائج الاختبار الأولى أضفنا <b>مختبر الاستراتيجيات</b>: التوصيات تعتمد الآن على الاستراتيجية التي تعتمدها أنت من المختبر بعد أن تجتاز فترة الاختبار. الشرح أدناه يخص النظام الأصلي.</div>
   <div class="card">
     <p>يجمع النظام أقوى ما ثبت عبر العقود في كتب التداول: <b>تتبّع الاتجاه</b> (داو، تورتل، "Trend Following" لكوفل)، <b>العرض والطلب</b> (وايكوف)، <b>الشموع اليابانية</b> (ستيف نيسون)، و<b>إدارة المخاطر</b> (Market Wizards). لا يعطي توصية إلا إذا اجتمعت الشروط معاً:</p>
     <ul>
@@ -249,6 +251,113 @@ const Engine = (() => {
 })();
 
 
+// ===== مختبر الاستراتيجيات: نفس الدالة تُستخدم للاختبار وللتوصية الحية =====
+const Lab = (() => {
+  const E = Engine;
+  const rsiN = (c, n) => { const o = Array(c.length).fill(null); let g = 0, l = 0; for (let i = 1; i < c.length; i++) { const d = c[i] - c[i - 1], u = Math.max(d, 0), w = Math.max(-d, 0); if (i <= n) { g += u; l += w; if (i === n) { g /= n; l /= n; o[i] = l === 0 ? 100 : 100 - 100 / (1 + g / l); } } else { g = (g * (n - 1) + u) / n; l = (l * (n - 1) + w) / n; o[i] = l === 0 ? 100 : 100 - 100 / (1 + g / l); } } return o; };
+
+  function context(bars, session) {
+    const c = bars.map(b => b.c), P = E.prepare(bars);
+    // الشموع اليومية (UTC) — كل شمعة ساعة ترى فقط الأيام المكتملة قبلها
+    const days = [], dayIdx = [];
+    bars.forEach((b, i) => { const k = Math.floor(b.t / 86400000); let d = days[days.length - 1]; if (!d || d.k !== k) { d = { k, o: b.o, h: b.h, l: b.l, c: b.c, first: i }; days.push(d); } else { d.h = Math.max(d.h, b.h); d.l = Math.min(d.l, b.l); d.c = b.c; } d.last = i; dayIdx.push(days.length - 1); });
+    const dc = days.map(d => d.c), d20 = E.ema(dc, 20), d50 = E.ema(dc, 50);
+    const trendD = days.map((d, j) => d50[j] == null ? 0 : (d.c > d50[j] && d20[j] > d50[j] ? 1 : d.c < d50[j] && d20[j] < d50[j] ? -1 : 0));
+    return { bars, P, atr: P.atr, e20: P.e20, e50: P.e50, e200: P.e200, rsi2: rsiN(c, 2), days, dayIdx, trendD, session };
+  }
+  const dTrend = (X, i) => { const j = X.dayIdx[i] - 1; return j >= 0 ? X.trendD[j] : 0; };
+  const hTrend = (X, i) => X.e200[i] == null ? 0 : (X.bars[i].c > X.e200[i] && X.e50[i] > X.e200[i] ? 1 : X.bars[i].c < X.e200[i] && X.e50[i] < X.e200[i] ? -1 : 0);
+  const trendOf = (X, i, filt) => filt ? dTrend(X, i) : hTrend(X, i);
+  const minL = (b, a, z) => { let m = Infinity; for (let j = a; j <= z; j++) m = Math.min(m, b[j].l); return m; };
+  const maxH = (b, a, z) => { let m = -Infinity; for (let j = a; j <= z; j++) m = Math.max(m, b[j].h); return m; };
+
+  // كل استراتيجية: signal(X, i, filt) => {dir, sl} على الشمعة المغلقة i أو null
+  const STRATS = [
+    { id: 'pull', name: 'الارتداد مع الاتجاه', desc: 'سوق في اتجاه واضح، يصحح حتى المتوسط 50، ثم يغلق فوق/تحت المتوسط 20 من جديد', hold: 48,
+      signal(X, i, f) { const b = X.bars, A = X.atr[i], t = trendOf(X, i, f); if (!t || !A || X.e50[i] == null || i < 7) return null;
+        if (t === 1 && minL(b, i - 5, i) <= X.e50[i] && b[i].c > X.e20[i] && b[i - 1].c <= X.e20[i - 1]) return { dir: 1, sl: minL(b, i - 5, i) - 0.2 * A };
+        if (t === -1 && maxH(b, i - 5, i) >= X.e50[i] && b[i].c < X.e20[i] && b[i - 1].c >= X.e20[i - 1]) return { dir: -1, sl: maxH(b, i - 5, i) + 0.2 * A };
+        return null; } },
+    { id: 'pdhl', name: 'اختراق قمة/قاع اليوم السابق', desc: 'إغلاق ساعة فوق قمة أمس (شراء) أو تحت قاعه (بيع)، مرة واحدة يومياً', hold: 36,
+      signal(X, i, f) { const b = X.bars, A = X.atr[i], j = X.dayIdx[i] - 1; if (j < 0 || !A) return null; const pd = X.days[j], t = f ? dTrend(X, i) : 0;
+        if (X.dayIdx[i - 1] === X.dayIdx[i]) { for (let k = X.days[X.dayIdx[i]].first; k < i; k++) if (b[k].c > pd.h || b[k].c < pd.l) return null; }
+        if (b[i].c > pd.h && (!f || t === 1)) return { dir: 1, sl: b[i].c - 1.5 * A };
+        if (b[i].c < pd.l && (!f || t === -1)) return { dir: -1, sl: b[i].c + 1.5 * A };
+        return null; } },
+    { id: 'orb', name: 'اختراق نطاق الافتتاح', desc: 'الذهب: نطاق جلسة آسيا (00–07 UTC) ثم اختراقه في لندن/نيويورك. المؤشرات: نطاق أول ساعة تداول', hold: 24,
+      signal(X, i, f) { const b = X.bars, A = X.atr[i], d = X.days[X.dayIdx[i]]; if (!A) return null; const hr = new Date(b[i].t).getUTCHours();
+        let rs, re; if (X.session) { rs = re = d.first; if (i <= d.first) return null; } else { if (hr < 7 || hr > 15) return null; rs = d.first; re = rs; while (re + 1 < i && new Date(b[re + 1].t).getUTCHours() < 7) re++; if (new Date(b[rs].t).getUTCHours() > 1 || re - rs < 4) return null; }
+        const H = maxH(b, rs, re), L = minL(b, rs, re), mid = (H + L) / 2, t = f ? dTrend(X, i) : 0;
+        for (let k = re + 1; k < i; k++) if (b[k].c > H || b[k].c < L) return null;
+        if (b[i].c > H && (!f || t === 1)) return { dir: 1, sl: Math.max(mid, b[i].c - 3 * A) };
+        if (b[i].c < L && (!f || t === -1)) return { dir: -1, sl: Math.min(mid, b[i].c + 3 * A) };
+        return null; } },
+    { id: 'donch', name: 'اختراق القناة (طريقة التورتلز)', desc: 'إغلاق فوق أعلى قمة لآخر 80 ساعة (≈ 20 شمعة H4) أو تحت أدنى قاع', hold: 120,
+      signal(X, i, f) { const b = X.bars, A = X.atr[i]; if (!A || i < 82) return null; const H = maxH(b, i - 80, i - 1), L = minL(b, i - 80, i - 1), t = f ? dTrend(X, i) : 0;
+        if (b[i].c > H && b[i - 1].c <= maxH(b, i - 81, i - 2) && (!f || t === 1)) return { dir: 1, sl: b[i].c - 3 * A };
+        if (b[i].c < L && b[i - 1].c >= minL(b, i - 81, i - 2) && (!f || t === -1)) return { dir: -1, sl: b[i].c + 3 * A };
+        return null; } },
+    { id: 'rsi2', name: 'تشبّع RSI(2) مع الاتجاه (كونرز)', desc: 'في اتجاه صاعد يُشترى الهبوط الحاد (RSI2 < 10)، وفي الهابط يُباع الصعود الحاد (> 90)', hold: 24,
+      signal(X, i, f) { const A = X.atr[i], t = trendOf(X, i, f), r = X.rsi2[i]; if (!A || !t || r == null) return null;
+        if (t === 1 && r < 10) return { dir: 1, sl: X.bars[i].c - 1.5 * A };
+        if (t === -1 && r > 90) return { dir: -1, sl: X.bars[i].c + 1.5 * A };
+        return null; } },
+    { id: 'base', name: 'النظام الأصلي (الشموع + التأكيد)', desc: 'الاستراتيجية الأولى للمقارنة', hold: 120, noFilter: true,
+      signal(X, i) { const r = E.bestAt(X.P, i, { rr: 2, allHours: X.session }); return E.isSignal(r, 80) ? { dir: r.dir, sl: r.sl } : null; } }
+  ];
+
+  // محاكاة: دخول عند افتتاح الشمعة التالية، تكلفة سبريد، لمس الوقف والهدف بنفس الشمعة = خسارة
+  function run(X, st, rr, filt, cost, from = 260, to = X.bars.length) {
+    const b = X.bars, tr = []; let i = Math.max(from, 260);
+    while (i < to - 1) {
+      const s = st.signal(X, i, filt); if (!s) { i++; continue; }
+      const e = b[i + 1].o, A = X.atr[i]; let d = Math.abs(e - s.sl); d = Math.min(Math.max(d, 0.5 * A), 4 * A);
+      if (s.dir * (e - s.sl) <= 0) { i++; continue; }
+      const sl = e - s.dir * d, tp = e + s.dir * rr * d; let R = null, j = i + 1;
+      for (; j < b.length && j <= i + st.hold; j++) {
+        if (s.dir === 1 ? b[j].l <= sl : b[j].h >= sl) { R = -1; break; }
+        if (s.dir === 1 ? b[j].h >= tp : b[j].l <= tp) { R = rr; break; }
+      }
+      if (R === null) { if (j >= b.length) break; R = s.dir * (b[j - 1].c - e) / d; j--; }
+      R -= cost / d;
+      tr.push({ t: b[i].t, dir: s.dir, R, i });
+      i = j + 1;
+    }
+    return tr;
+  }
+  function stats(tr, weeks) {
+    const n = tr.length, w = tr.filter(t => t.R > 0).length, net = tr.reduce((a, t) => a + t.R, 0);
+    const gp = tr.filter(t => t.R > 0).reduce((a, t) => a + t.R, 0), gl = -tr.filter(t => t.R < 0).reduce((a, t) => a + t.R, 0);
+    let run = 0, ml = 0, eq = 0, pk = 0, dd = 0; tr.forEach(t => { run = t.R < 0 ? run + 1 : 0; ml = Math.max(ml, run); eq += t.R; pk = Math.max(pk, eq); dd = Math.max(dd, pk - eq); });
+    return { n, win: n ? w / n : 0, net, pf: gl ? gp / gl : (gp ? 99 : 0), maxL: ml, dd, perWeek: weeks > 0 ? n / weeks : 0 };
+  }
+
+  // كل التركيبات: 65% تدريب ثم 35% اختبار على فترة لم تُستخدم في الاختيار
+  function sweep(X, cost) {
+    const b = X.bars, split = Math.floor(260 + (b.length - 260) * 0.65), wk = (a, z) => (b[z - 1].t - b[a].t) / 604800000;
+    const out = [];
+    for (const st of STRATS) for (const rr of [1, 1.5, 2, 3]) for (const filt of st.noFilter ? [false] : [false, true]) {
+      if (st.id === 'base' && rr !== 2) continue;
+      const all = run(X, st, rr, filt, cost), ins = all.filter(t => t.i < split), oos = all.filter(t => t.i >= split);
+      const I = stats(ins, wk(260, split)), O = stats(oos, wk(split, b.length)), A = stats(all, wk(260, b.length));
+      const pass = I.n >= 15 && I.pf >= 1.2 && O.n >= 8 && O.pf >= 1.1 && O.net > 0;
+      out.push({ sid: st.id, name: st.name, rr, filt, I, O, A, pass, score: Math.min(I.pf, 3) * Math.min(O.pf, 3) * (pass ? 2 : 1) });
+    }
+    out.sort((a, z) => z.score - a.score);
+    return { rows: out, split, splitT: b[split].t, startT: b[260].t, endT: b[b.length - 1].t };
+  }
+
+  // التوصية الحية بالاستراتيجية المعتمدة
+  function live(X, sid, rr, filt) {
+    const st = STRATS.find(s => s.id === sid), i = X.bars.length - 1; if (!st) return null;
+    const s = st.signal(X, i, filt), A = X.atr[i]; if (!s) return { st, sig: null, i };
+    const e = X.bars[i].c; let d = Math.abs(e - s.sl); d = Math.min(Math.max(d, 0.5 * A), 4 * A);
+    return { st, i, sig: { dir: s.dir, entry: e, sl: e - s.dir * d, tp: e + s.dir * rr * d, dist: d } };
+  }
+  return { STRATS, context, run, stats, sweep, live, dTrend };
+})();
+
+
 </script>
 <script>
 {
@@ -261,7 +370,9 @@ let S = Object.assign(structuredClone(DEF), ls.get('gr_set', {}));
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (v, d) => Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
-const lastData = {}, MEM = {};
+const lastData = {}, MEM = {}, LAB = {};
+const COST = { XAU: 0.35, US30: 3, NAS: 2 }; // سبريد تقريبي بنقاط الوسيط
+S.appr = S.appr || {};
 
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
@@ -300,6 +411,7 @@ function cardHTML(sym, r, err) {
   const t = new Date(r.t + 3600000).toLocaleString('ar', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
   return `<div class="card">
    <div class="top"><span class="sym">${esc(sym.name)}</span><span class="badge ${cls}">${lab}</span></div>
+   <p class="err" style="margin:6px 0 0">⚠ هذا النظام الأصلي خسر في الاختبار التاريخي. شغّل المختبر واعتمد استراتيجية ناجحة.</p>
    <div class="meter"><i style="width:${r.score}%;background:${col}"></i><b></b></div>
    <div class="small">الثقة ${r.score}/100 ${r.mustOk ? '' : '· شرط إلزامي غير متحقق'} · ${dirTxt} · شمعة ${esc(t)}</div>
    ${sig ? `<div class="lv"><div><span>الدخول</span><strong>${fmt(r.entry * f, d)}</strong></div><div><span>وقف الخسارة</span><strong style="color:var(--sell)">${fmt(r.sl * f, d)}</strong></div><div><span>الهدف</span><strong style="color:var(--buy)">${fmt(r.tp * f, d)}</strong></div></div>
@@ -314,8 +426,8 @@ function draw(sym) {
   const D = lastData[sym.id], cv = $('cv-' + sym.id); if (!D || !cv) return;
   const W = cv.clientWidth, H = cv.clientHeight, dpr = devicePixelRatio || 1; cv.width = W * dpr; cv.height = H * dpr;
   const x = cv.getContext('2d'); x.scale(dpr, dpr);
-  const n = Math.min(W < 420 ? 60 : 90, D.P.h1.length), st = D.P.h1.length - n, bars = D.P.h1.slice(st), r = D.r;
-  const sig = r && Engine.isSignal(r, S.th);
+  const n = Math.min(W < 420 ? 60 : 90, D.P.h1.length), st = D.P.h1.length - n, bars = D.P.h1.slice(st), r = D.L ? (D.L.sig || null) : D.r;
+  const sig = D.L ? !!D.L.sig : (r && Engine.isSignal(r, S.th));
   let hi = Math.max(...bars.map(b => b.h)), lo = Math.min(...bars.map(b => b.l));
   if (sig) { hi = Math.max(hi, r.sl, r.tp); lo = Math.min(lo, r.sl, r.tp); }
   const pad = (hi - lo) * .06; hi += pad; lo -= pad;
@@ -337,10 +449,17 @@ async function refresh() {
   for (const sym of S.syms) {
     try {
       const bars = await fetchH1(sym, 2000); const P = Engine.prepare(bars);
-      const r = Engine.bestAt(P, bars.length - 1, { rr: S.rr, allHours: sym.allHours });
-      lastData[sym.id] = { P, r };
-      if (r && Engine.isSignal(r, S.th)) logSignal(sym, r);
-      html.push(cardHTML(sym, r));
+      const ap = S.appr[sym.id];
+      if (ap) {
+        const X = Lab.context(bars, sym.allHours), L = Lab.live(X, ap.sid, ap.rr, ap.filt);
+        lastData[sym.id] = { P, L }; if (L && L.sig) logLab(sym, L, bars[bars.length - 1].t);
+        html.push(labCard(sym, L, ap));
+      } else {
+        const r = Engine.bestAt(P, bars.length - 1, { rr: S.rr, allHours: sym.allHours });
+        lastData[sym.id] = { P, r };
+        if (r && Engine.isSignal(r, S.th)) logSignal(sym, r);
+        html.push(cardHTML(sym, r));
+      }
     } catch (e) { html.push(cardHTML(sym, null, e.message)); }
   }
   $('cards').innerHTML = html.join(''); S.syms.forEach(draw);
@@ -353,8 +472,8 @@ function signalText(sym, r) {
 }
 $('cards').addEventListener('click', e => {
   const b = e.target.closest('[data-copy]'); if (!b) return;
-  const sym = S.syms.find(s => s.id === b.dataset.copy), r = lastData[sym.id].r;
-  navigator.clipboard.writeText(signalText(sym, r)).then(() => b.textContent = 'تم النسخ ✓', () => b.textContent = 'تعذر النسخ');
+  const sym = S.syms.find(s => s.id === b.dataset.copy), D = lastData[sym.id];
+  navigator.clipboard.writeText(D.L ? labText(sym, D.L) : signalText(sym, D.r)).then(() => b.textContent = 'تم النسخ ✓', () => b.textContent = 'تعذر النسخ');
 });
 
 function logSignal(sym, r) {
@@ -370,24 +489,90 @@ function renderHist() {
 }
 $('clrH').onclick = () => { ls.set('gr_hist', []); renderHist(); };
 
+async function fetchHist(sym, pages, msg) {
+  const key = 'hist_' + sym.td; if (MEM[key] && Date.now() - MEM[key].at < 3600000) return MEM[key].bars;
+  let all = [], end = null;
+  for (let p = 0; p < pages; p++) {
+    msg(p);
+    const url = 'https://api.twelvedata.com/time_series?symbol=' + encodeURIComponent(sym.td) + '&interval=1h&outputsize=5000&timezone=UTC&order=ASC&apikey=' + encodeURIComponent(S.key) + (end ? '&end_date=' + encodeURIComponent(end) : '');
+    const j = await fetch(url).then(r => r.json());
+    if (j.status === 'error' || !j.values) { if (p === 0) throw new Error(j.message || 'تعذر جلب البيانات'); break; }
+    const bars = j.values.map(v => ({ t: Date.parse(v.datetime.replace(' ', 'T') + 'Z'), o: +v.open, h: +v.high, l: +v.low, c: +v.close }));
+    all = bars.concat(all); bars.sort((a, b) => a.t - b.t);
+    end = new Date(bars[0].t - 3600000).toISOString().slice(0, 19).replace('T', ' ');
+    if (bars.length < 4900) break;
+    await new Promise(r => setTimeout(r, 8500));
+  }
+  all.sort((a, b) => a.t - b.t); all = all.filter((b, i) => i === 0 || b.t !== all[i - 1].t);
+  if (all.length && all[all.length - 1].t + 3600000 > Date.now()) all.pop();
+  MEM[key] = { at: Date.now(), bars: all }; return all;
+}
+const dd = t => new Date(t).toLocaleDateString('ar', { year: 'numeric', month: 'short' });
+const pfTxt = v => v >= 99 ? '∞' : v.toFixed(2);
+function labHTML(sym) {
+  const R = LAB[sym.id]; if (!R) return '';
+  if (R.err) return `<div class="card" style="margin-bottom:14px"><b>${esc(sym.name)}</b><p class="err">${esc(R.err)}</p></div>`;
+  const pass = R.rows.filter(r => r.pass), ap = S.appr[sym.id];
+  const rows = R.rows.slice(0, 10).map((r, k) => {
+    const isAp = ap && ap.sid === r.sid && ap.rr === r.rr && ap.filt === r.filt;
+    return `<tr><td>${r.pass ? '✅' : '❌'} ${esc(r.name)}${r.filt ? ' + فلتر يومي' : ''}</td><td class="n">1:${r.rr}</td>
+    <td class="n">${r.I.n} · ${(r.I.win * 100).toFixed(0)}% · ${pfTxt(r.I.pf)}</td>
+    <td class="n" style="color:${r.O.net > 0 ? 'var(--buy)' : 'var(--sell)'}">${r.O.n} · ${(r.O.win * 100).toFixed(0)}% · ${pfTxt(r.O.pf)} · ${fmt(r.O.net * S.maxRisk, 0)}$</td>
+    <td class="n">${r.A.perWeek.toFixed(1)}</td>
+    <td>${r.pass ? (isAp ? '<b style="color:var(--buy)">معتمدة ✓</b>' : `<button class="b" data-ap="${sym.id}|${k}">اعتمد</button>`) : ''}</td></tr>`; }).join('');
+  return `<div class="card" style="margin-bottom:14px"><div class="top"><span class="sym">${esc(sym.name)}</span><span class="small">${R.n.toLocaleString('en-US')} شمعة</span></div>
+  <p class="small">تدريب: ${esc(dd(R.startT))} — ${esc(dd(R.splitT))} · اختبار: ${esc(dd(R.splitT))} — ${esc(dd(R.endT))}</p>
+  <p style="font-weight:700;color:${pass.length ? 'var(--buy)' : 'var(--sell)'}">${pass.length ? `${pass.length} تركيبة اجتازت التدريب والاختبار معاً` : 'لا توجد استراتيجية اجتازت الاختبار على هذا الرمز — الأفضل عدم التداول عليه بهذه الطرق'}</p>
+  <div class="scroll"><table class="stack"><thead><tr><th>الاستراتيجية</th><th>ربح:مخاطرة</th><th>تدريب: صفقات · نجاح · معامل</th><th>اختبار: صفقات · نجاح · معامل · صافي</th><th>صفقة/أسبوع</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+  ${ap ? `<div class="bar" style="margin-top:10px"><button class="b" data-unap="${sym.id}">إلغاء الاعتماد والعودة للنظام الأصلي</button></div>` : ''}</div>`;
+}
+function renderLab() { $('btOut').innerHTML = S.syms.map(labHTML).join(''); }
 $('runBt').onclick = async () => {
   if (!S.key) { $('btMsg').textContent = 'ضع المفتاح في الإعدادات أولاً'; return; }
-  $('btMsg').textContent = 'جاري جلب 5000 شمعة لكل رمز…'; let out = '';
-  for (const sym of S.syms) {
+  $('runBt').disabled = true;
+  for (const [k, sym] of S.syms.entries()) {
     try {
-      const bars = await fetchH1(sym, 5000);
-      if (bars.length < 400) throw new Error('بيانات غير كافية (' + bars.length + ' شمعة)');
-      const P = Engine.prepare(bars), R = Engine.backtest(P, { threshold: S.th, rr: S.rr, allHours: sym.allHours });
-      const from = new Date(bars[250] ? bars[250].t : bars[0].t).toLocaleDateString('ar'), to = new Date(bars[bars.length - 1].t).toLocaleDateString('ar');
-      out += `<div class="card" style="margin-bottom:14px"><div class="top"><span class="sym">${esc(sym.name)}</span><span class="small">${esc(from)} — ${esc(to)}</span></div>
-      <div class="stats"><div><span class="small">عدد الصفقات</span><strong>${R.n}</strong></div><div><span class="small">نسبة النجاح</span><strong>${(R.winRate * 100).toFixed(0)}%</strong></div><div><span class="small">صفقة/أسبوع</span><strong>${R.perWeek.toFixed(1)}</strong></div><div><span class="small">صافي الربح (خسارة ${S.maxRisk}$ للصفقة)</span><strong style="color:${R.netR >= 0 ? 'var(--buy)' : 'var(--sell)'}">${fmt(R.netR * S.maxRisk, 0)}$</strong></div><div><span class="small">معامل الربح</span><strong>${isFinite(R.pf) ? R.pf.toFixed(2) : '∞'}</strong></div><div><span class="small">أطول سلسلة خسائر</span><strong>${R.maxLossStreak}</strong></div></div>
-      ${R.n ? `<div class="scroll"><table><thead><tr><th>التاريخ</th><th>الاتجاه</th><th>النموذج</th><th>الثقة</th><th>النتيجة</th></tr></thead><tbody>${R.trades.slice().reverse().map(t => `<tr><td>${esc(new Date(t.t).toLocaleDateString('ar', { month: 'short', day: 'numeric' }))}</td><td>${t.dir === 1 ? 'شراء' : 'بيع'}</td><td>${esc(t.pattern || '')}</td><td class="n">${t.score}</td><td class="n" style="color:${t.R > 0 ? 'var(--buy)' : 'var(--sell)'}">${t.R > 0 ? '+' : ''}${t.R.toFixed(2)}R</td></tr>`).join('')}</tbody></table></div>` : '<p class="small">لم تتحقق الشروط في هذه الفترة — جرّب حد ثقة 75.</p>'}</div>`;
-    } catch (e) { out += `<div class="card"><p class="err">${esc(sym.name)}: ${esc(e.message)}</p></div>`; }
-    $('btOut').innerHTML = out;
-    await new Promise(r => setTimeout(r, 8000)); // احترام حد الخطة المجانية
+      const bars = await fetchHist(sym, 3, p => $('btMsg').textContent = `جلب بيانات ${sym.name} (${p + 1}/3)…`);
+      if (bars.length < 1500) throw new Error('بيانات غير كافية (' + bars.length + ' شمعة)');
+      $('btMsg').textContent = 'تحليل ' + sym.name + '…'; await new Promise(r => setTimeout(r, 30));
+      const X = Lab.context(bars, sym.allHours), cost = (sym.cost ?? COST[sym.id] ?? 0) / sym.factor;
+      LAB[sym.id] = Object.assign(Lab.sweep(X, cost), { n: bars.length });
+    } catch (e) { LAB[sym.id] = { err: sym.name + ': ' + e.message }; }
+    renderLab();
+    if (k < S.syms.length - 1) await new Promise(r => setTimeout(r, 8500));
   }
-  $('btMsg').textContent = 'اكتمل. R = وحدة المخاطرة (خسارة صفقة واحدة).';
+  $('runBt').disabled = false;
+  $('btMsg').textContent = 'اكتمل. معامل الربح فوق 1 = رابح. الصافي محسوب بخسارة ' + S.maxRisk + '$ للصفقة.';
 };
+$('btOut').addEventListener('click', e => {
+  const a = e.target.closest('[data-ap]'), u = e.target.closest('[data-unap]');
+  if (a) { const [id, k] = a.dataset.ap.split('|'), r = LAB[id].rows[+k]; S.appr[id] = { sid: r.sid, rr: r.rr, filt: r.filt, name: r.name, oWin: r.O.win, oPf: r.O.pf, perWeek: r.A.perWeek }; }
+  else if (u) delete S.appr[u.dataset.unap]; else return;
+  ls.set('gr_set', S); renderLab(); refresh();
+});
+$('stratList').innerHTML = Lab.STRATS.map(s => `<li><b>${esc(s.name)}:</b> ${esc(s.desc)}</li>`).join('') + '<li><b>فلتر يومي:</b> لا يدخل إلا مع اتجاه الشارت اليومي (المتوسط 20 فوق/تحت 50 والسعر معهما).</li>';
+
+function labCard(sym, L, ap) {
+  const g = L && L.sig, f = sym.factor, d = sym.dec, cls = g ? (g.dir === 1 ? 'buy' : 'sell') : '';
+  const z = g ? sizing(sym, g.dist) : null;
+  return `<div class="card">
+   <div class="top"><span class="sym">${esc(sym.name)}</span><span class="badge ${cls}">${g ? (g.dir === 1 ? 'شراء ▲' : 'بيع ▼') : 'لا صفقة — انتظر'}</span></div>
+   <p class="small" style="margin:8px 0">الاستراتيجية المعتمدة: <b>${esc(ap.name)}${ap.filt ? ' + فلتر يومي' : ''}</b> · 1:${ap.rr}<br>في فترة الاختبار: نجاح ${(ap.oWin * 100).toFixed(0)}% · معامل ربح ${pfTxt(ap.oPf)} · حوالي ${ap.perWeek.toFixed(1)} صفقة/أسبوع</p>
+   ${g ? `<div class="lv"><div><span>الدخول</span><strong>${fmt(g.entry * f, d)}</strong></div><div><span>وقف الخسارة</span><strong style="color:var(--sell)">${fmt(g.sl * f, d)}</strong></div><div><span>الهدف</span><strong style="color:var(--buy)">${fmt(g.tp * f, d)}</strong></div></div>
+   <div class="money"><span>الوقف ${fmt(g.dist * f, d)} نقطة</span><span>لوت ${S.lot}: خسارة ${fmt(z.risk, 0)}$ / ربح ${fmt(z.risk * ap.rr, 0)}$</span>${z.ok ? '' : `<span style="color:var(--sell)">اللوت المقترح ${z.sug} للبقاء تحت ${S.maxRisk}$</span>`}</div>
+   <button class="b" data-copy="${sym.id}">نسخ التوصية</button>` : '<p class="small">لا توجد إشارة على آخر شمعة مغلقة. سيتحقق التطبيق مجدداً بعد إغلاق الساعة القادمة.</p>'}
+   <div class="fig"><canvas id="cv-${sym.id}"></canvas></div></div>`;
+}
+function labText(sym, L) {
+  const g = L.sig, f = sym.factor, d = sym.dec, ap = S.appr[sym.id], z = sizing(sym, g.dist);
+  return `${sym.name} — ${g.dir === 1 ? 'شراء' : 'بيع'}\nالدخول: ${fmt(g.entry * f, d)}\nوقف الخسارة: ${fmt(g.sl * f, d)}\nالهدف: ${fmt(g.tp * f, d)}\nالاستراتيجية: ${ap.name}\nلوت ${S.lot}: خسارة ${fmt(z.risk, 0)}$ / ربح ${fmt(z.risk * ap.rr, 0)}$`;
+}
+function logLab(sym, L, t) {
+  const H = ls.get('gr_hist', []), g = L.sig; if (H.some(h => h.sym === sym.id && h.t === t)) return;
+  H.unshift({ sym: sym.id, name: sym.name, t, dir: g.dir, score: '—', entry: g.entry * sym.factor, sl: g.sl * sym.factor, tp: g.tp * sym.factor, dec: sym.dec });
+  ls.set('gr_hist', H.slice(0, 200));
+  try { if (window.Notification && Notification.permission === 'granted') new Notification('توصية ' + (g.dir === 1 ? 'شراء ' : 'بيع ') + sym.name, { body: S.appr[sym.id].name }); } catch (e) {}
+}
 
 function renderSet() {
   $('key').value = S.key; $('lot').value = S.lot; $('maxRisk').value = S.maxRisk; $('rr').value = String(S.rr); $('th').value = String(S.th);
